@@ -358,3 +358,76 @@ body {
 .board-container.size-5x5 .coordinates-left .coord {
     height: 70px;
 }
+
+.timer-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+#timer {
+    font-size: 28px;
+    font-weight: bold;
+    color: #0f0f23;
+    background: linear-gradient(145deg, #ffffff, #f0f0f0);
+    border: 3px solid #ddd;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+#timer.warning {
+    color: #FF6B35;
+    border-color: #FF6B35;
+    animation: timerPulse 1s infinite;
+}
+
+#timer.critical {
+    color: #D32F2F;
+    border-color: #D32F2F;
+    background: linear-gradient(145deg, #ffebee, #ffcdd2);
+    animation: timerPulse 0.5s infinite;
+}
+
+.timer-label {
+    font-size: 12px;
+    color: #666;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@keyframes timerPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.stalling-warning {
+    background: linear-gradient(145deg, #ff5722, #d84315);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    font-weight: bold;
+    font-size: 16px;
+    box-shadow: 0 4px 15px rgba(255, 87, 34, 0.4);
+    animation: warningPulse 1s infinite;
+    border: 2px solid #bf360c;
+}
+
+.stalling-warning.final {
+    background: linear-gradient(145deg, #d32f2f, #b71c1c);
+    border-color: #8f0000;
+    animation: warningPulse 0.5s infinite;
+}
+
+@keyframes warningPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.02); opacity: 0.9; }
+}

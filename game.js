@@ -13,6 +13,12 @@ class GridWars {
         this.gameActive = false;
         this.clickSound = new Audio('pop.mp3');
         this.clickSound.volume = 0.3;
+        this.moveTimer = null;
+        this.timeLeft = 30;
+        this.maxMoveTime = 30;
+        this.moveHistory = { black: [], white: [] };
+        this.stallingWarnings = { black: 0, white: 0 };
+        this.maxStallingWarnings = 2;
         this.init();
     }
 
@@ -106,6 +112,7 @@ class GridWars {
         document.getElementById('menu').classList.add('hidden');
         document.getElementById('game').classList.remove('hidden');
         this.updateStatus();
+        this.startMoveTimer();
         
         if (this.gameMode !== 'multiplayer' && this.currentPlayer === this.aiPlayer) {
             setTimeout(() => this.makeAIMove(), 500);
@@ -114,6 +121,7 @@ class GridWars {
 
     showMenu() {
         this.gameActive = false;
+        this.stopMoveTimer();
         document.getElementById('game').classList.add('hidden');
         document.getElementById('menu').classList.remove('hidden');
         this.resetBoard();
@@ -124,11 +132,158 @@ class GridWars {
         this.phase = 'placing';
         this.pieceCount = { black: 0, white: 0 };
         this.selectedCell = null;
+        this.moveHistory = { black: [], white: [] };
+        this.stallingWarnings = { black: 0, white: 0 };
+        this.hideStallingWarning();
+        this.stopMoveTimer();
         
         document.querySelectorAll('.cell').forEach(cell => {
             cell.className = 'cell';
             cell.style.cursor = 'pointer';
         });
+    }
+
+    showStallingWarning(isFirst) {
+        const warningElement = document.getElementById('stalling-warning');
+        const warningText = document.getElementById('warning-text');
+        
+        if (isFirst) {
+            warningText.textContent = '⚠️ Stop repeating moves! This is a warning!';
+            warningElement.classList.remove('final');
+        } else {
+            warningText.textContent = '🚨 Final warning! Next repeated move = forfeit turn!';
+            warningElement.classList.add('final');
+        }
+        
+        warningElement.classList.remove('hidden');
+        
+        setTimeout(() => {
+            this.hideStallingWarning();
+        }, 3000);
+    }
+
+    hideStallingWarning() {
+        document.getElementById('stalling-warning').classList.add('hidden');
+    }
+
+    recordMove(from, to) {
+        const moveKey = `${from}-${to}`;
+        const history = this.moveHistory[this.currentPlayer];
+        
+        // Only record moves in moving phase
+        if (this.phase === 'moving') {
+            history.push(moveKey);
+            
+            // Keep only last 6 moves for pattern detection
+            if (history.length > 6) {
+                history.shift();
+            }
+        }
+    }
+
+    isRepetitiveMove(from, to) {
+        if (this.phase !== 'moving') return false;
+        
+        const moveKey = `${from}-${to}`;
+        const history = this.moveHistory[this.currentPlayer];
+        
+        // Need at least 2 moves to detect repetition
+        if (history.length < 2) return false;
+        
+        // Check if this move creates a back-and-forth pattern
+        const lastMove = history[history.length - 1];
+        const reverseMove = `${to}-${from}`;
+        
+        // Direct back-and-forth
+        if (lastMove === reverseMove) return true;
+        
+        // Check for alternating pattern (A-B, B-A, A-B)
+        if (history.length >= 3) {
+            const secondLastMove = history[history.length - 2];
+            if (moveKey === secondLastMove && lastMove === reverseMove) {
+                return true;
+            }
+        }
+        
+        // Check for frequent repetition of same move
+        const recentMoves = history.slice(-4);
+        const moveCount = recentMoves.filter(move => move === moveKey).length;
+        
+        return moveCount >= 2;
+    }
+
+    handleRepetitiveMove() {
+        this.stallingWarnings[this.currentPlayer]++;
+        
+        if (this.stallingWarnings[this.currentPlayer] === 1) {
+            this.showStallingWarning(true);
+            return false; // Allow the move but warn
+        } else if (this.stallingWarnings[this.currentPlayer] === 2) {
+            this.showStallingWarning(false);
+            return false; // Final warning
+        } else {
+            // Forfeit turn
+            this.hideStallingWarning();
+            this.switchPlayer();
+            return true; // Move blocked, turn forfeited
+        }
+    }
+
+    startMoveTimer() {
+        this.stopMoveTimer();
+        this.timeLeft = this.maxMoveTime;
+        this.updateTimerDisplay();
+        
+        this.moveTimer = setInterval(() => {
+            this.timeLeft--;
+            this.updateTimerDisplay();
+            
+            if (this.timeLeft <= 0) {
+                this.handleTimeOut();
+            }
+        }, 1000);
+    }
+
+    stopMoveTimer() {
+        if (this.moveTimer) {
+            clearInterval(this.moveTimer);
+            this.moveTimer = null;
+        }
+    }
+
+    updateTimerDisplay() {
+        const timerElement = document.getElementById('timer');
+        timerElement.textContent = this.timeLeft;
+        
+        // Remove previous warning classes
+        timerElement.classList.remove('warning', 'critical');
+        
+        // Add warning classes based on time left
+        if (this.timeLeft <= 5) {
+            timerElement.classList.add('critical');
+        } else if (this.timeLeft <= 10) {
+            timerElement.classList.add('warning');
+        }
+    }
+
+    handleTimeOut() {
+        if (!this.gameActive) return;
+        
+        this.stopMoveTimer();
+        
+        // Force a random move for the current player
+        const availableMoves = this.getAvailableMoves();
+        if (availableMoves.length > 0) {
+            const randomMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            
+            this.playClickSound();
+            if (this.phase === 'placing') {
+                this.placePiece(randomMove.to);
+            } else {
+                this.selectedCell = randomMove.from;
+                this.movePiece(randomMove.to);
+            }
+        }
     }
 
     playClickSound() {
@@ -196,6 +351,21 @@ class GridWars {
     }
 
     movePiece(newIndex) {
+        const from = this.selectedCell;
+        const to = newIndex;
+        
+        // Check for repetitive moves
+        if (this.isRepetitiveMove(from, to)) {
+            if (this.handleRepetitiveMove()) {
+                // Turn was forfeited, deselect piece
+                this.deselectPiece();
+                return;
+            }
+        }
+        
+        // Record the move
+        this.recordMove(from, to);
+        
         const oldCell = document.querySelector(`[data-index="${this.selectedCell}"]`);
         const newCell = document.querySelector(`[data-index="${newIndex}"]`);
 
@@ -217,14 +387,28 @@ class GridWars {
     switchPlayer() {
         this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
         this.updateStatus();
+        this.startMoveTimer();
         
         if (this.gameMode !== 'multiplayer' && this.currentPlayer === this.aiPlayer && this.gameActive) {
+            // Give AI a shorter time limit to prevent long thinking
+            this.timeLeft = Math.min(this.timeLeft, 10);
+            this.updateTimerDisplay();
             setTimeout(() => this.makeAIMove(), 500);
         }
     }
 
     makeAIMove() {
         if (!this.gameActive) return;
+        
+        // Limit AI thinking time based on difficulty
+        const thinkingTime = {
+            'ai-easy': 1000,
+            'ai-medium': 2000,
+            'ai-hard': 3000
+        };
+        
+        const maxThinkTime = thinkingTime[this.gameMode] || 1000;
+        const startTime = Date.now();
         
         let move;
         switch (this.gameMode) {
@@ -239,20 +423,29 @@ class GridWars {
                 break;
         }
 
-        if (move) {
-            this.playClickSound();
-            if (this.phase === 'placing') {
-                this.placePiece(move.to);
-            } else {
-                this.selectedCell = move.from;
-                this.movePiece(move.to);
+        // Ensure AI doesn't exceed thinking time
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, maxThinkTime - elapsedTime);
+        
+        setTimeout(() => {
+            if (move && this.gameActive) {
+                this.playClickSound();
+                if (this.phase === 'placing') {
+                    this.placePiece(move.to);
+                } else {
+                    this.selectedCell = move.from;
+                    this.movePiece(move.to);
+                }
             }
-        }
+        }, Math.min(remainingTime, 500));
     }
 
     getRandomMove() {
         const availableMoves = this.getAvailableMoves();
-        if (availableMoves.length === 0) return null;
+        if (availableMoves.length === 0) {
+            // If no non-repetitive moves available, allow any valid move
+            return this.getAllValidMoves()[0] || null;
+        }
         
         const strategic = this.getStrategicPositions();
         
@@ -263,6 +456,30 @@ class GridWars {
         
         const movesToConsider = strategicMoves.length > 0 ? strategicMoves : availableMoves;
         return movesToConsider[Math.floor(Math.random() * movesToConsider.length)];
+    }
+
+    getAllValidMoves() {
+        const moves = [];
+        
+        if (this.phase === 'placing') {
+            for (let i = 0; i < this.boardSize * this.boardSize; i++) {
+                if (!this.board[i]) {
+                    moves.push({ to: i });
+                }
+            }
+        } else {
+            for (let from = 0; from < this.boardSize * this.boardSize; from++) {
+                if (this.board[from] === this.currentPlayer) {
+                    for (let to = 0; to < this.boardSize * this.boardSize; to++) {
+                        if (this.isValidMove(from, to)) {
+                            moves.push({ from, to });
+                        }
+                    }
+                }
+            }
+        }
+        
+        return moves;
     }
 
     getMediumAIMove() {
@@ -550,7 +767,14 @@ class GridWars {
                 if (this.board[from] === this.currentPlayer) {
                     for (let to = 0; to < this.boardSize * this.boardSize; to++) {
                         if (this.isValidMove(from, to)) {
-                            moves.push({ from, to });
+                            // Filter out repetitive moves for AI
+                            if (this.gameMode !== 'multiplayer' && this.currentPlayer === this.aiPlayer) {
+                                if (!this.isRepetitiveMove(from, to)) {
+                                    moves.push({ from, to });
+                                }
+                            } else {
+                                moves.push({ from, to });
+                            }
                         }
                     }
                 }
@@ -627,6 +851,7 @@ class GridWars {
 
     endGame() {
         this.gameActive = false;
+        this.stopMoveTimer();
         const status = document.getElementById('status');
         
         if (this.gameMode === 'multiplayer') {

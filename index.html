@@ -29,7 +29,14 @@
         <div id="game" class="game hidden">
             <div class="game-header">
                 <div id="status">Black's Turn</div>
+                <div class="timer-container">
+                    <div id="timer">30</div>
+                    <div class="timer-label">seconds</div>
+                </div>
                 <button id="restart-btn">New Game</button>
+            </div>
+            <div id="stalling-warning" class="stalling-warning hidden">
+                <span id="warning-text">⚠️ Stop repeating moves! Final warning!</span>
             </div>
             <div class="board-container">
                 <div class="coordinates-top" id="coordinates-top"></div>
