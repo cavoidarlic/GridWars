@@ -28,7 +28,6 @@ class GridWars {
         document.getElementById('ai-hard-btn').addEventListener('click', () => this.startGame('ai-hard'));
         document.getElementById('restart-btn').addEventListener('click', () => this.showMenu());
         
-        // Board size selection
         document.getElementById('size-3x3').addEventListener('click', () => this.setBoardSize(3));
         document.getElementById('size-4x4').addEventListener('click', () => this.setBoardSize(4));
         document.getElementById('size-5x5').addEventListener('click', () => this.setBoardSize(5));
@@ -38,7 +37,6 @@ class GridWars {
         this.boardSize = size;
         this.maxPieces = size === 3 ? 3 : (size === 4 ? 4 : 5);
         
-        // Update active button
         document.querySelectorAll('.size-btn').forEach(btn => btn.classList.remove('active'));
         document.getElementById(`size-${size}x${size}`).classList.add('active');
         
@@ -220,34 +218,33 @@ class GridWars {
 
     getRandomMove() {
         const availableMoves = this.getAvailableMoves();
-        return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+        if (availableMoves.length === 0) return null;
+        
+        const strategic = this.getStrategicPositions();
+        
+        const strategicMoves = availableMoves.filter(move => {
+            const pos = this.phase === 'placing' ? move.to : move.to;
+            return strategic.includes(pos);
+        });
+        
+        const movesToConsider = strategicMoves.length > 0 ? strategicMoves : availableMoves;
+        return movesToConsider[Math.floor(Math.random() * movesToConsider.length)];
     }
 
     getMediumAIMove() {
-        // Try to win first
         let move = this.findWinningMove(this.aiPlayer);
         if (move) return move;
         
-        // Block player from winning
         move = this.findWinningMove(this.humanPlayer);
         if (move) return move;
         
-        // Otherwise random move
-        return this.getRandomMove();
-    }
-
-    getHardAIMove() {
-        // Try to win first
-        let move = this.findWinningMove(this.aiPlayer);
+        move = this.findForkMove(this.aiPlayer);
         if (move) return move;
         
-        // Block player from winning
-        move = this.findWinningMove(this.humanPlayer);
+        move = this.findForkMove(this.humanPlayer);
         if (move) return move;
         
-        // Strategic moves
         if (this.phase === 'placing') {
-            // For different board sizes, prefer center and corners
             const strategic = this.getStrategicPositions();
             for (let pos of strategic) {
                 if (!this.board[pos]) {
@@ -259,20 +256,224 @@ class GridWars {
         return this.getRandomMove();
     }
 
+    getHardAIMove() {
+        const depth = this.phase === 'placing' ? 4 : 6;
+        return this.minimax(depth, true).move;
+    }
+
+    findForkMove(player) {
+        const moves = this.getAvailableMoves();
+        
+        for (let move of moves) {
+            const boardCopy = [...this.board];
+            if (this.phase === 'placing') {
+                boardCopy[move.to] = player;
+            } else {
+                boardCopy[move.from] = null;
+                boardCopy[move.to] = player;
+            }
+            
+            let winningOpportunities = 0;
+            const lines = this.getWinningLines();
+            
+            for (let line of lines) {
+                let playerCount = 0;
+                let emptyCount = 0;
+                
+                for (let pos of line) {
+                    if (boardCopy[pos] === player) playerCount++;
+                    else if (!boardCopy[pos]) emptyCount++;
+                }
+                
+                if (playerCount === this.boardSize - 1 && emptyCount === 1) {
+                    winningOpportunities++;
+                }
+            }
+            
+            if (winningOpportunities >= 2) {
+                return move;
+            }
+        }
+        
+        return null;
+    }
+
+    minimax(depth, isMaximizing, alpha = -Infinity, beta = Infinity) {
+        const winner = this.checkWinOnBoard(this.board);
+        
+        if (winner) {
+            if (this.getWinner(this.board) === this.aiPlayer) return { score: 100 + depth };
+            else return { score: -100 - depth };
+        }
+        
+        if (depth === 0) {
+            return { score: this.evaluateBoard() };
+        }
+        
+        const moves = this.getAvailableMoves();
+        if (moves.length === 0) return { score: 0 };
+        
+        let bestMove = moves[0];
+        
+        if (isMaximizing) {
+            let maxScore = -Infinity;
+            
+            for (let move of moves) {
+                const oldBoard = [...this.board];
+                const oldPlayer = this.currentPlayer;
+                
+                this.makeTemporaryMove(move);
+                this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+                
+                const result = this.minimax(depth - 1, false, alpha, beta);
+                
+                this.board = oldBoard;
+                this.currentPlayer = oldPlayer;
+                
+                if (result.score > maxScore) {
+                    maxScore = result.score;
+                    bestMove = move;
+                }
+                
+                alpha = Math.max(alpha, result.score);
+                if (beta <= alpha) break;
+            }
+            
+            return { score: maxScore, move: bestMove };
+        } else {
+            let minScore = Infinity;
+            
+            for (let move of moves) {
+                const oldBoard = [...this.board];
+                const oldPlayer = this.currentPlayer;
+                
+                this.makeTemporaryMove(move);
+                this.currentPlayer = this.currentPlayer === 'black' ? 'white' : 'black';
+                
+                const result = this.minimax(depth - 1, true, alpha, beta);
+                
+                this.board = oldBoard;
+                this.currentPlayer = oldPlayer;
+                
+                if (result.score < minScore) {
+                    minScore = result.score;
+                    bestMove = move;
+                }
+                
+                beta = Math.min(beta, result.score);
+                if (beta <= alpha) break;
+            }
+            
+            return { score: minScore, move: bestMove };
+        }
+    }
+
+    makeTemporaryMove(move) {
+        if (this.phase === 'placing') {
+            this.board[move.to] = this.currentPlayer;
+        } else {
+            this.board[move.from] = null;
+            this.board[move.to] = this.currentPlayer;
+        }
+    }
+
+    evaluateBoard() {
+        let score = 0;
+        const lines = this.getWinningLines();
+        
+        for (let line of lines) {
+            score += this.evaluateLine(line);
+        }
+        
+        score += this.evaluatePositions();
+        
+        return score;
+    }
+
+    evaluateLine(line) {
+        let aiCount = 0;
+        let humanCount = 0;
+        let emptyCount = 0;
+        
+        for (let pos of line) {
+            if (this.board[pos] === this.aiPlayer) aiCount++;
+            else if (this.board[pos] === this.humanPlayer) humanCount++;
+            else emptyCount++;
+        }
+        
+        if (aiCount > 0 && humanCount > 0) return 0;
+        
+        let score = 0;
+        
+        if (aiCount > 0) {
+            score = Math.pow(10, aiCount);
+        } else if (humanCount > 0) {
+            score = -Math.pow(10, humanCount);
+        }
+        
+        return score;
+    }
+
+    evaluatePositions() {
+        let score = 0;
+        const center = Math.floor(this.boardSize / 2);
+        const centerPos = center * this.boardSize + center;
+        
+        if (this.board[centerPos] === this.aiPlayer) score += 10;
+        else if (this.board[centerPos] === this.humanPlayer) score -= 10;
+        
+        const corners = [
+            0,
+            this.boardSize - 1,
+            (this.boardSize - 1) * this.boardSize,
+            this.boardSize * this.boardSize - 1
+        ];
+        
+        for (let corner of corners) {
+            if (this.board[corner] === this.aiPlayer) score += 5;
+            else if (this.board[corner] === this.humanPlayer) score -= 5;
+        }
+        
+        const oldPlayer = this.currentPlayer;
+        
+        this.currentPlayer = this.aiPlayer;
+        const aiMoves = this.getAvailableMoves().length;
+        
+        this.currentPlayer = this.humanPlayer;
+        const humanMoves = this.getAvailableMoves().length;
+        
+        this.currentPlayer = oldPlayer;
+        
+        score += (aiMoves - humanMoves);
+        
+        return score;
+    }
+
+    getWinner(board) {
+        const lines = this.getWinningLines();
+        
+        for (let line of lines) {
+            if (line.every(pos => board[pos] && board[pos] === board[line[0]])) {
+                return board[line[0]];
+            }
+        }
+        
+        return null;
+    }
+    
     getStrategicPositions() {
         const center = Math.floor(this.boardSize / 2);
         const centerPos = center * this.boardSize + center;
         
         const corners = [
-            0, // top-left
-            this.boardSize - 1, // top-right
-            (this.boardSize - 1) * this.boardSize, // bottom-left
-            this.boardSize * this.boardSize - 1 // bottom-right
+            0,
+            this.boardSize - 1,
+            (this.boardSize - 1) * this.boardSize,
+            this.boardSize * this.boardSize - 1
         ];
         
         const strategic = [centerPos, ...corners];
         
-        // Add remaining positions
         for (let i = 0; i < this.boardSize * this.boardSize; i++) {
             if (!strategic.includes(i)) {
                 strategic.push(i);
@@ -311,10 +512,8 @@ class GridWars {
                 }
             }
         } else {
-            // Find all pieces of current player
             for (let from = 0; from < this.boardSize * this.boardSize; from++) {
                 if (this.board[from] === this.currentPlayer) {
-                    // Find valid moves for this piece
                     for (let to = 0; to < this.boardSize * this.boardSize; to++) {
                         if (this.isValidMove(from, to)) {
                             moves.push({ from, to });
@@ -348,7 +547,6 @@ class GridWars {
     getWinningLines() {
         const lines = [];
         
-        // Rows
         for (let row = 0; row < this.boardSize; row++) {
             const line = [];
             for (let col = 0; col < this.boardSize; col++) {
@@ -357,7 +555,6 @@ class GridWars {
             lines.push(line);
         }
         
-        // Columns
         for (let col = 0; col < this.boardSize; col++) {
             const line = [];
             for (let row = 0; row < this.boardSize; row++) {
@@ -366,7 +563,6 @@ class GridWars {
             lines.push(line);
         }
         
-        // Diagonals
         const diagonal1 = [];
         const diagonal2 = [];
         for (let i = 0; i < this.boardSize; i++) {
