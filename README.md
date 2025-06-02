@@ -2,6 +2,8 @@
 
 Tic-tac-toe but pieces can move!
 
+Try it out here: https://cavoidarlic.github.io/GridWars/
+
 ## How to Play
 
 1. **Pick board size** - 3x3, 4x4, or 5x5
