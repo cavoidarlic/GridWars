@@ -45,14 +45,48 @@ class GridWars {
 
     createBoard() {
         const boardElement = document.getElementById('board');
+        const boardContainer = boardElement.closest('.board-container');
+        const coordinatesTop = document.getElementById('coordinates-top');
+        const coordinatesLeft = document.getElementById('coordinates-left');
+        
+        // Clear existing content
         boardElement.innerHTML = '';
+        coordinatesTop.innerHTML = '';
+        coordinatesLeft.innerHTML = '';
+        
+        // Set board container class for sizing
+        boardContainer.className = `board-container size-${this.boardSize}x${this.boardSize}`;
         boardElement.className = `board board-${this.boardSize}x${this.boardSize}`;
         
+        // Create column coordinates (A, B, C, etc.)
+        for (let col = 0; col < this.boardSize; col++) {
+            const coord = document.createElement('div');
+            coord.className = 'coord';
+            coord.textContent = String.fromCharCode(65 + col); // A, B, C, D, E
+            coordinatesTop.appendChild(coord);
+        }
+        
+        // Create row coordinates (1, 2, 3, etc.)
+        for (let row = 0; row < this.boardSize; row++) {
+            const coord = document.createElement('div');
+            coord.className = 'coord';
+            coord.textContent = (row + 1).toString();
+            coordinatesLeft.appendChild(coord);
+        }
+        
+        // Create board cells
         const totalCells = this.boardSize * this.boardSize;
         for (let i = 0; i < totalCells; i++) {
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.dataset.index = i;
+            
+            // Add coordinate as title for accessibility
+            const row = Math.floor(i / this.boardSize);
+            const col = i % this.boardSize;
+            const coordinate = String.fromCharCode(65 + col) + (row + 1);
+            cell.title = coordinate;
+            
             cell.addEventListener('click', () => this.handleClick(cell));
             boardElement.appendChild(cell);
         }

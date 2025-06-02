@@ -294,3 +294,67 @@ body {
 .cell.selected:hover {
     background: linear-gradient(145deg, #ffeb3b, #ffc107);
 }
+
+.board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.coordinates-top {
+    display: flex;
+    gap: 8px;
+    padding-left: 35px;
+    font-weight: bold;
+    color: #0f0f23;
+    font-size: 14px;
+}
+
+.board-with-left-coords {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.coordinates-left {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-weight: bold;
+    color: #0f0f23;
+    font-size: 14px;
+    padding-top: 8px;
+    width: 25px;
+    text-align: center;
+}
+
+.coordinates-top .coord {
+    width: 70px;
+    text-align: center;
+}
+
+.coordinates-left .coord {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 4x4 board coordinate adjustments */
+.board-container.size-4x4 .coordinates-top .coord {
+    width: 80px;
+}
+
+.board-container.size-4x4 .coordinates-left .coord {
+    height: 80px;
+}
+
+/* 5x5 board coordinate adjustments */
+.board-container.size-5x5 .coordinates-top .coord {
+    width: 70px;
+}
+
+.board-container.size-5x5 .coordinates-left .coord {
+    height: 70px;
+}
