@@ -3,22 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TicTacGoes</title>
+    <title>GridWars</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-container">
-        <div id="status">Black's Turn</div>
-        <div class="board">
-            <div class="cell" data-index="0"></div>
-            <div class="cell" data-index="1"></div>
-            <div class="cell" data-index="2"></div>
-            <div class="cell" data-index="3"></div>
-            <div class="cell" data-index="4"></div>
-            <div class="cell" data-index="5"></div>
-            <div class="cell" data-index="6"></div>
-            <div class="cell" data-index="7"></div>
-            <div class="cell" data-index="8"></div>
+        <div id="menu" class="menu">
+            <h1>GridWars</h1>
+            <div class="board-size-selection">
+                <h3>Select Board Size:</h3>
+                <div class="size-buttons">
+                    <button id="size-3x3" class="size-btn active">3x3</button>
+                    <button id="size-4x4" class="size-btn">4x4</button>
+                    <button id="size-5x5" class="size-btn">5x5</button>
+                </div>
+            </div>
+            <div class="menu-buttons">
+                <button id="multiplayer-btn">Multiplayer</button>
+                <button id="ai-easy-btn">AI - Easy</button>
+                <button id="ai-medium-btn">AI - Medium</button>
+                <button id="ai-hard-btn">AI - Hard</button>
+            </div>
+        </div>
+        
+        <div id="game" class="game hidden">
+            <div class="game-header">
+                <div id="status">Black's Turn</div>
+                <button id="restart-btn">New Game</button>
+            </div>
+            <div class="board" id="board">
+                <!-- Cells will be generated dynamically -->
+            </div>
         </div>
     </div>
     <script src="game.js"></script>
